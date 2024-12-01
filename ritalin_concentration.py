@@ -30,23 +30,22 @@ class RitalinModel:
         
         return immediate + delayed
 
-def plot_concentrations(model, include_residual=False):
+def plot_concentrations(model):
     # Create time points (24 hours, in 5-minute intervals)
     t = np.linspace(0, 24, 289)
     
     # Set dosing time (8 AM = hour 8)
     t0 = 8
     
-    # Calculate concentrations
+    # Calculate concentrations including residual from previous day
     la_conc = model.la_concentration(t, 30, t0)
     ir_conc = model.immediate_release_concentration(t, 10, t0)
     
-    if include_residual:
-        # Calculate residual from previous day
-        prev_la_conc = model.la_concentration(t + 24, 30, t0)
-        prev_ir_conc = model.immediate_release_concentration(t + 24, 10, t0)
-        la_conc += prev_la_conc
-        ir_conc += prev_ir_conc
+    # Calculate residual from previous day
+    prev_la_conc = model.la_concentration(t + 24, 30, t0)
+    prev_ir_conc = model.immediate_release_concentration(t + 24, 10, t0)
+    la_conc += prev_la_conc
+    ir_conc += prev_ir_conc
 
     # Plotting
     plt.figure(figsize=(12, 6))
@@ -56,7 +55,7 @@ def plot_concentrations(model, include_residual=False):
     # Customize plot
     plt.xlabel('Time (hours)')
     plt.ylabel('Relative Concentration')
-    plt.title(f'Ritalin Concentration Over Time {"(with residual)" if include_residual else ""}')
+    plt.title('Ritalin Concentration Over Time (with residual)')
     plt.grid(True, alpha=0.3)
     plt.legend()
     
@@ -73,14 +72,9 @@ def plot_concentrations(model, include_residual=False):
 def main():
     model = RitalinModel()
     
-    # Plot without residual
-    plt1 = plot_concentrations(model, include_residual=False)
-    plt1.savefig('ritalin_concentration_no_residual.png')
-    
-    # Plot with residual
-    plt2 = plot_concentrations(model, include_residual=True)
-    plt2.savefig('ritalin_concentration_with_residual.png')
-    
+    # Create single plot with residual
+    plt = plot_concentrations(model)
+    plt.savefig('ritalin_concentration.png')
     plt.show()
 
 if __name__ == "__main__":
