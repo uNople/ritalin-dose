@@ -51,29 +51,29 @@ class RitalinUI:
 
     def init_variables(self):
         # LA+IR variables
-        self.la_dose = tk.StringVar(value="60")
-        self.la_time = tk.StringVar(value="8")
-        self.ir_afternoon_dose = tk.StringVar(value="20")
-        self.ir_afternoon_time = tk.StringVar(value="16")
-        self.ir_evening_dose = tk.StringVar(value="20")
+        self.la_morning_dose = tk.StringVar(value="30")
+        self.la_morning_time = tk.StringVar(value="8")
+        self.la_afternoon_dose = tk.StringVar(value="30")
+        self.la_afternoon_time = tk.StringVar(value="16")
+        self.ir_evening_dose = tk.StringVar(value="0")
         self.ir_evening_time = tk.StringVar(value="20")
         
         # IR-only variables
         self.ir_doses = [tk.StringVar(value="20") for _ in range(4)]
-        self.ir_times = [tk.StringVar(value=str(t)) for t in [8, 12, 16, 20]]
+        self.ir_times = [tk.StringVar(value=str(t)) for t in [8, 13, 18, 23]]
 
     def create_la_ir_inputs(self):
-        # LA inputs
-        ttk.Label(self.la_ir_frame, text="LA Dose (mg):").grid(row=0, column=0, pady=5)
-        ttk.Entry(self.la_ir_frame, textvariable=self.la_dose).grid(row=0, column=1, pady=5)
-        ttk.Label(self.la_ir_frame, text="LA Time (hour):").grid(row=1, column=0, pady=5)
-        ttk.Entry(self.la_ir_frame, textvariable=self.la_time).grid(row=1, column=1, pady=5)
+        # Morning LA inputs
+        ttk.Label(self.la_ir_frame, text="Morning LA Dose (mg):").grid(row=0, column=0, pady=5)
+        ttk.Entry(self.la_ir_frame, textvariable=self.la_morning_dose).grid(row=0, column=1, pady=5)
+        ttk.Label(self.la_ir_frame, text="Morning LA Time (hour):").grid(row=1, column=0, pady=5)
+        ttk.Entry(self.la_ir_frame, textvariable=self.la_morning_time).grid(row=1, column=1, pady=5)
         
-        # IR afternoon inputs
-        ttk.Label(self.la_ir_frame, text="IR Afternoon Dose (mg):").grid(row=2, column=0, pady=5)
-        ttk.Entry(self.la_ir_frame, textvariable=self.ir_afternoon_dose).grid(row=2, column=1, pady=5)
-        ttk.Label(self.la_ir_frame, text="IR Afternoon Time (hour):").grid(row=3, column=0, pady=5)
-        ttk.Entry(self.la_ir_frame, textvariable=self.ir_afternoon_time).grid(row=3, column=1, pady=5)
+        # Afternoon LA inputs
+        ttk.Label(self.la_ir_frame, text="Afternoon LA Dose (mg):").grid(row=2, column=0, pady=5)
+        ttk.Entry(self.la_ir_frame, textvariable=self.la_afternoon_dose).grid(row=2, column=1, pady=5)
+        ttk.Label(self.la_ir_frame, text="Afternoon LA Time (hour):").grid(row=3, column=0, pady=5)
+        ttk.Entry(self.la_ir_frame, textvariable=self.la_afternoon_time).grid(row=3, column=1, pady=5)
         
         # IR evening inputs
         ttk.Label(self.la_ir_frame, text="IR Evening Dose (mg):").grid(row=4, column=0, pady=5)
@@ -97,31 +97,42 @@ class RitalinUI:
         
         # Update LA+IR plot
         try:
-            la_dose = float(self.la_dose.get())
-            la_time = float(self.la_time.get())
-            ir_afternoon_dose = float(self.ir_afternoon_dose.get())
-            ir_afternoon_time = float(self.ir_afternoon_time.get())
+            la_morning_dose = float(self.la_morning_dose.get())
+            la_morning_time = float(self.la_morning_time.get())
+            la_afternoon_dose = float(self.la_afternoon_dose.get())
+            la_afternoon_time = float(self.la_afternoon_time.get())
             ir_evening_dose = float(self.ir_evening_dose.get())
             ir_evening_time = float(self.ir_evening_time.get())
             
-            la_conc = self.model.la_concentration(t, la_dose, la_time)
-            ir_afternoon_conc = self.model.immediate_release_concentration(t, ir_afternoon_dose, ir_afternoon_time)
+            # Calculate morning LA concentration
+            la_morning_conc = self.model.la_concentration(t, la_morning_dose, la_morning_time)
+            # Calculate afternoon LA concentration
+            la_afternoon_conc = self.model.la_concentration(t, la_afternoon_dose, la_afternoon_time)
+            # Calculate evening IR concentration
             ir_evening_conc = self.model.immediate_release_concentration(t, ir_evening_dose, ir_evening_time)
             
             # Add residuals
-            la_conc += self.model.la_concentration(t + 24, la_dose, la_time)
-            ir_afternoon_conc += self.model.immediate_release_concentration(t + 24, ir_afternoon_dose, ir_afternoon_time)
+            la_morning_conc += self.model.la_concentration(t + 24, la_morning_dose, la_morning_time)
+            la_afternoon_conc += self.model.la_concentration(t + 24, la_afternoon_dose, la_afternoon_time)
             ir_evening_conc += self.model.immediate_release_concentration(t + 24, ir_evening_dose, ir_evening_time)
             
-            total_ir_conc = ir_afternoon_conc + ir_evening_conc
-            total_conc = la_conc + total_ir_conc
+            total_la_conc = la_morning_conc + la_afternoon_conc
+            total_conc = total_la_conc + ir_evening_conc
             
-            self.ax1.plot(t, la_conc, label=f'Ritalin LA {la_dose}mg')
-            self.ax1.plot(t, total_ir_conc, label='Total IR')
+            self.ax1.plot(t, total_la_conc, label=f'Total LA ({la_morning_dose}mg + {la_afternoon_dose}mg)')
+            if ir_evening_dose > 0:
+                self.ax1.plot(t, ir_evening_conc, label='Evening IR')
             self.ax1.plot(t, total_conc, label='Total Concentration', linestyle='--', color='red')
             
-            for t0 in [la_time, ir_afternoon_time, ir_evening_time]:
+            for t0 in [la_morning_time, la_afternoon_time]:
                 self.ax1.axvline(x=t0, color='gray', linestyle='--', alpha=0.5)
+                self.ax1.text(t0 + 0.1, self.ax1.get_ylim()[1] * (0.95 - 0.1 * (t0/8 - 1)), 
+                             f'LA Dose ({t0}:00)', rotation=90)
+            
+            if ir_evening_dose > 0:
+                self.ax1.axvline(x=ir_evening_time, color='gray', linestyle='--', alpha=0.5)
+                self.ax1.text(ir_evening_time + 0.1, self.ax1.get_ylim()[1] * 0.75, 
+                             f'IR Dose ({ir_evening_time}:00)', rotation=90)
             
         except ValueError:
             self.ax1.text(0.5, 0.5, 'Invalid input values', ha='center', va='center')
