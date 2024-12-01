@@ -7,6 +7,7 @@ from ritalin_concentration import RitalinModel
 import json
 import os
 import sys
+from matplotlib.ticker import MultipleLocator
 
 class RitalinUI:
     def __init__(self, root):
@@ -183,13 +184,18 @@ class RitalinUI:
             la_afternoon_conc += self.model.la_concentration(t + 24, la_afternoon_dose, la_afternoon_time)
             ir_evening_conc += self.model.immediate_release_concentration(t + 24, ir_evening_dose, ir_evening_time)
             
-            total_la_conc = la_morning_conc + la_afternoon_conc
-            total_conc = total_la_conc + ir_evening_conc
+            # Plot individual concentrations
+            self.ax1.plot(t, la_morning_conc, label=f'Morning LA {la_morning_dose}mg', alpha=0.5)
+            self.ax1.plot(t, la_afternoon_conc, label=f'Afternoon LA {la_afternoon_dose}mg', alpha=0.5)
             
-            self.ax1.plot(t, total_la_conc, label=f'Total LA ({la_morning_dose}mg + {la_afternoon_dose}mg)')
+            total_la_conc = la_morning_conc + la_afternoon_conc
+            self.ax1.plot(t, total_la_conc, label='Total LA', linewidth=2)
+            
             if ir_evening_dose > 0:
-                self.ax1.plot(t, ir_evening_conc, label='Evening IR')
-            self.ax1.plot(t, total_conc, label='Total Concentration', linestyle='--', color='red')
+                self.ax1.plot(t, ir_evening_conc, label=f'Evening IR {ir_evening_dose}mg', alpha=0.5)
+            
+            total_conc = total_la_conc + ir_evening_conc
+            self.ax1.plot(t, total_conc, label='Total Concentration', linestyle='--', color='red', linewidth=2)
             
             for t0 in [la_morning_time, la_afternoon_time]:
                 self.ax1.axvline(x=t0, color='gray', linestyle='--', alpha=0.5)
@@ -201,41 +207,71 @@ class RitalinUI:
                 self.ax1.text(ir_evening_time + 0.1, self.ax1.get_ylim()[1] * 0.75, 
                              f'IR Dose ({ir_evening_time}:00)', rotation=90)
             
+            # Add grid lines and customize axes
+            self.ax1.set_xlabel('Time (hours)')
+            self.ax1.set_ylabel('Relative Concentration')
+            self.ax1.set_title('LA + IR Combination')
+            self.ax1.grid(True, which='major', alpha=0.3)
+            self.ax1.grid(True, which='minor', alpha=0.15)
+            self.ax1.minorticks_on()
+            self.ax1.yaxis.set_major_locator(plt.MultipleLocator(1.0))
+            self.ax1.yaxis.set_minor_locator(plt.MultipleLocator(0.5))
+            self.ax1.legend()
+            self.ax1.set_xticks(np.arange(0, 25, 2))
+            
         except ValueError:
             self.ax1.text(0.5, 0.5, 'Invalid input values', ha='center', va='center')
         
         # Update IR-only plot
         try:
-            total_conc = np.zeros_like(t)
+            # Plot individual IR doses and total
+            individual_concs = []
             for dose_var, time_var in zip(self.ir_doses, self.ir_times):
                 dose = float(dose_var.get())
                 time = float(time_var.get())
                 conc = self.model.immediate_release_concentration(t, dose, time)
                 conc += self.model.immediate_release_concentration(t + 24, dose, time)
-                total_conc += conc
+                individual_concs.append(conc)
+                self.ax2.plot(t, conc, label=f'IR {dose}mg at {time}:00', alpha=0.5)
                 self.ax2.axvline(x=time, color='gray', linestyle='--', alpha=0.5)
+                self.ax2.text(time + 0.1, self.ax2.get_ylim()[1] * (0.95 - 0.1 * (time/8 - 1)), 
+                        f'IR Dose ({time}:00)\n{dose}mg', rotation=90)
             
-            self.ax2.plot(t, total_conc, label='Total Concentration', color='red')
+            # Plot total concentration
+            total_conc = sum(individual_concs)
+            self.ax2.plot(t, total_conc, label='Total Concentration', color='red', linewidth=2)
+            
+            # Add grid lines and customize axes
+            self.ax2.set_xlabel('Time (hours)')
+            self.ax2.set_ylabel('Relative Concentration')
+            self.ax2.set_title('IR Only - Individual and Total Concentrations')
+            self.ax2.grid(True, which='major', alpha=0.3)
+            self.ax2.grid(True, which='minor', alpha=0.15)
+            self.ax2.minorticks_on()
+            self.ax2.yaxis.set_major_locator(plt.MultipleLocator(1.0))
+            self.ax2.yaxis.set_minor_locator(plt.MultipleLocator(0.5))
+            self.ax2.legend()
+            self.ax2.set_xticks(np.arange(0, 25, 2))
             
         except ValueError:
             self.ax2.text(0.5, 0.5, 'Invalid input values', ha='center', va='center')
         
-        # Customize plots
-        for ax in [self.ax1, self.ax2]:
-            ax.set_xlabel('Time (hours)')
-            ax.set_ylabel('Relative Concentration')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-            ax.set_xticks(np.arange(0, 25, 2))
-        
-        self.ax1.set_title('LA + IR Combination')
-        self.ax2.set_title('IR Only')
-        
-        # Save settings after each update
+        # Save settings and update display
         self.save_settings()
-        
         self.fig.tight_layout()
         self.canvas.draw()
+        
+        # Save plots as separate high-resolution images
+        try:
+            # Save LA+IR plot
+            extent1 = self.ax1.get_window_extent().transformed(self.fig.dpi_scale_trans.inverted())
+            self.fig.savefig('la_ir_plot.png', bbox_inches=extent1.expanded(1.1, 1.2), dpi=300)
+            
+            # Save IR-only plot
+            extent2 = self.ax2.get_window_extent().transformed(self.fig.dpi_scale_trans.inverted())
+            self.fig.savefig('ir_only_plot.png', bbox_inches=extent2.expanded(1.1, 1.2), dpi=300)
+        except Exception as e:
+            print(f"Error saving plots: {e}")
 
     def on_closing(self):
         """Handle window closing event"""

@@ -2,6 +2,10 @@
 
 A Python application that visualizes the concentration curves of different Ritalin (Methylphenidate) dosing schedules over a 24-hour period. The application models both Long-Acting (LA) and Immediate Release (IR) formulations, including residual effects from the previous day.
 
+Written to help me with getting my dose timings correct over the course of a day, and making sure I'm not getting points where the ritalin reaches too high a level for me.
+
+This is not meant as medical advice, and this is a personal project only.
+
 ## Features
 
 - Interactive GUI for adjusting doses and timing
@@ -15,6 +19,14 @@ A Python application that visualizes the concentration curves of different Rital
   - Total concentration curves
   - Dosing time markers
 - Residual effects from previous day included
+
+## example output
+
+This was to graph how I'd take 2xLA, and end up with a similar profile to 4x20mg (+1 10mg float) ritalin a day
+![Ritalin LA 60mg (2x30mg at 8 AM)](example_la_ir_plot.png)
+4x20mg (+1 10mg float), what I was on before
+![Total IR (2x10mg + 2x10mg)](example_ir_only_plot.png)
+
 
 ## Installation
 
