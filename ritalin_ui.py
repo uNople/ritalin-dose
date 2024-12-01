@@ -4,12 +4,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ritalin_concentration import RitalinModel
+import json
+import os
+import sys
 
 class RitalinUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Ritalin Concentration Calculator")
         self.model = RitalinModel()
+        self.settings_file = 'ritalin_settings.json'
+        
+        # Add window close handler
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Create main frames
         self.control_frame = ttk.Frame(root, padding="10")
@@ -50,17 +57,77 @@ class RitalinUI:
         self.update_graphs()
 
     def init_variables(self):
-        # LA+IR variables
-        self.la_morning_dose = tk.StringVar(value="30")
-        self.la_morning_time = tk.StringVar(value="8")
-        self.la_afternoon_dose = tk.StringVar(value="30")
-        self.la_afternoon_time = tk.StringVar(value="16")
-        self.ir_evening_dose = tk.StringVar(value="0")
-        self.ir_evening_time = tk.StringVar(value="20")
+        # Create the variables
+        self.la_morning_dose = tk.StringVar()
+        self.la_morning_time = tk.StringVar()
+        self.la_afternoon_dose = tk.StringVar()
+        self.la_afternoon_time = tk.StringVar()
+        self.ir_evening_dose = tk.StringVar()
+        self.ir_evening_time = tk.StringVar()
         
-        # IR-only variables
-        self.ir_doses = [tk.StringVar(value="20") for _ in range(4)]
-        self.ir_times = [tk.StringVar(value=str(t)) for t in [8, 13, 18, 23]]
+        self.ir_doses = [tk.StringVar() for _ in range(4)]
+        self.ir_times = [tk.StringVar() for _ in range(4)]
+        
+        # Load saved values or set defaults
+        self.load_saved_settings()
+
+    def load_saved_settings(self):
+        """Load the last used settings from JSON file"""
+        if os.path.exists(self.settings_file):
+            try:
+                with open(self.settings_file, 'r') as f:
+                    settings = json.load(f)
+                    
+                # LA+IR settings
+                self.la_morning_dose.set(settings.get('la_morning_dose', "30"))
+                self.la_morning_time.set(settings.get('la_morning_time', "8"))
+                self.la_afternoon_dose.set(settings.get('la_afternoon_dose', "30"))
+                self.la_afternoon_time.set(settings.get('la_afternoon_time', "16"))
+                self.ir_evening_dose.set(settings.get('ir_evening_dose', "0"))
+                self.ir_evening_time.set(settings.get('ir_evening_time', "20"))
+                
+                # IR-only settings
+                for i, (dose, time) in enumerate(zip(
+                    settings.get('ir_doses', ["20"]*4),
+                    settings.get('ir_times', ["8", "13", "18", "23"])
+                )):
+                    self.ir_doses[i].set(dose)
+                    self.ir_times[i].set(time)
+            except:
+                self.init_default_variables()
+        else:
+            self.init_default_variables()
+
+    def save_settings(self):
+        """Save current settings to JSON file"""
+        settings = {
+            'la_morning_dose': self.la_morning_dose.get(),
+            'la_morning_time': self.la_morning_time.get(),
+            'la_afternoon_dose': self.la_afternoon_dose.get(),
+            'la_afternoon_time': self.la_afternoon_time.get(),
+            'ir_evening_dose': self.ir_evening_dose.get(),
+            'ir_evening_time': self.ir_evening_time.get(),
+            'ir_doses': [var.get() for var in self.ir_doses],
+            'ir_times': [var.get() for var in self.ir_times]
+        }
+        
+        with open(self.settings_file, 'w') as f:
+            json.dump(settings, f)
+
+    def init_default_variables(self):
+        """Set default values for all variables"""
+        self.la_morning_dose.set("30")
+        self.la_morning_time.set("8")
+        self.la_afternoon_dose.set("30")
+        self.la_afternoon_time.set("16")
+        self.ir_evening_dose.set("0")
+        self.ir_evening_time.set("20")
+        
+        for dose_var in self.ir_doses:
+            dose_var.set("20")
+        
+        for time_var, time in zip(self.ir_times, [8, 13, 18, 23]):
+            time_var.set(str(time))
 
     def create_la_ir_inputs(self):
         # Morning LA inputs
@@ -164,8 +231,17 @@ class RitalinUI:
         self.ax1.set_title('LA + IR Combination')
         self.ax2.set_title('IR Only')
         
+        # Save settings after each update
+        self.save_settings()
+        
         self.fig.tight_layout()
         self.canvas.draw()
+
+    def on_closing(self):
+        """Handle window closing event"""
+        self.save_settings()  # Save settings before closing
+        self.root.destroy()   # Destroy the window
+        sys.exit(0)          # Exit Python
 
 def main():
     root = tk.Tk()
